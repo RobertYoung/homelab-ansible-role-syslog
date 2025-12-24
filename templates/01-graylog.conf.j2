@@ -1,0 +1,22 @@
+module(load="imuxsock")
+module(load="imjournal")
+module(load="mmjsonparse")
+module(load="gtls")
+
+global(
+DefaultNetstreamDriver="gtls"
+DefaultNetstreamDriverCAFile="/etc/ssl/certs/ca-certificates.crt"
+DefaultNetstreamDriverCertFile="/etc/ssl/certs/{{ syslog_fqdn }}.crt"
+DefaultNetstreamDriverKeyFile="/etc/ssl/private/{{ syslog_fqdn }}.pem"
+)
+
+action(
+  type="omfwd"
+  Target="{{ syslog_graylog_url }}"
+  Port="{{ syslog_graylog_port }}"
+  Protocol="tcp"
+  StreamDriver="gtls"
+  StreamDriverMode="1"  # TLS-only
+  StreamDriverAuthMode="x509/name"
+  Template="RSYSLOG_SyslogProtocol23Format"
+)
