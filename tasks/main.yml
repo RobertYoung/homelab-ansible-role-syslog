@@ -1,0 +1,26 @@
+---
+- name: Update apt and install rsyslog
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - rsyslog
+      - rsyslog-gnutls
+      - rsyslog-relp
+    state: present
+
+- name: "Copy rsyslog configuration file"
+  become: true
+  ansible.builtin.template:
+    src: "templates/01-graylog.conf.j2"
+    dest: /etc/rsyslog.d/01-graylog.conf
+    owner: root
+  register: rsyslog_config
+
+- name: "Restart rsyslog"
+  become: true
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+    enabled: true
+  when: rsyslog_config.changed

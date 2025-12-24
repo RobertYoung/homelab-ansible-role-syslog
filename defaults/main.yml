@@ -1,0 +1,4 @@
+---
+syslog_graylog_url: graylog.local.iamrobertyoung.co.uk
+syslog_graylog_port: 5140
+# syslog_fqdn: Required - Fully qualified domain name of the host (used for TLS certificate paths)
