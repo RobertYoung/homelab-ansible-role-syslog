@@ -9,18 +9,19 @@
       - rsyslog-relp
     state: present
 
-- name: "Copy rsyslog configuration file"
+- name: Copy rsyslog configuration file
   become: true
   ansible.builtin.template:
     src: "templates/01-graylog.conf.j2"
     dest: /etc/rsyslog.d/01-graylog.conf
     owner: root
-  register: rsyslog_config
+    group: root
+    mode: "0644"
+  notify: Restart rsyslog
 
-- name: "Restart rsyslog"
+- name: Ensure rsyslog service is enabled
   become: true
   ansible.builtin.systemd:
     name: rsyslog
-    state: restarted
     enabled: true
-  when: rsyslog_config.changed
+  notify: Restart rsyslog
