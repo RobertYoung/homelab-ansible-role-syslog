@@ -1,0 +1,65 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Assert rsyslog package is installed
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog' in ansible_facts.packages"
+        fail_msg: "rsyslog package is not installed"
+        success_msg: "rsyslog package is installed"
+
+    - name: Assert rsyslog-gnutls package is installed
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog-gnutls' in ansible_facts.packages"
+        fail_msg: "rsyslog-gnutls package is not installed"
+        success_msg: "rsyslog-gnutls package is installed"
+
+    - name: Check graylog config exists
+      ansible.builtin.stat:
+        path: /etc/rsyslog.d/01-graylog.conf
+      register: graylog_conf
+
+    - name: Assert graylog config exists
+      ansible.builtin.assert:
+        that:
+          - graylog_conf.stat.exists
+        fail_msg: "01-graylog.conf does not exist"
+        success_msg: "01-graylog.conf exists"
+
+    - name: Read graylog config content
+      ansible.builtin.slurp:
+        src: /etc/rsyslog.d/01-graylog.conf
+      register: graylog_content
+
+    - name: Assert graylog config contains expected configuration
+      ansible.builtin.assert:
+        that:
+          - "'graylog.local.iamrobertyoung.co.uk' in (graylog_content.content | b64decode)"
+          - "'5140' in (graylog_content.content | b64decode)"
+        fail_msg: "01-graylog.conf does not contain expected Graylog configuration"
+        success_msg: "01-graylog.conf contains correct Graylog configuration"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert rsyslog service is recognized
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts.services"
+        fail_msg: "rsyslog service is not recognized by systemd"
+        success_msg: "rsyslog service is recognized by systemd"
+
+    - name: Assert rsyslog service is enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['rsyslog.service'].status == 'enabled'
+        fail_msg: "rsyslog service is not enabled"
+        success_msg: "rsyslog service is enabled"

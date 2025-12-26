@@ -1,5 +1,7 @@
 ---
 galaxy_info:
+  role_name: syslog
+  namespace: robertyoung
   author: RobertYoung
   description: Ansible role for configuring rsyslog to forward logs to Graylog over TLS
   license: MIT

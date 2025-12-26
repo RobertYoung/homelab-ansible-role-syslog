@@ -1,0 +1,8 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    syslog_fqdn: "test.example.com"
+  roles:
+    - role: robertyoung.syslog
