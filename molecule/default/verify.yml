@@ -51,18 +51,22 @@
         src: /etc/rsyslog.d/01-syslog-forward.conf
       register: forward_content
 
-    - name: Assert every destination is rendered, with its own framing
+    - name: Assert the default destination is rendered
       ansible.builtin.assert:
         that:
-          - "'logs.example.com' in (forward_content.content | b64decode)"
-          - "'5140' in (forward_content.content | b64decode)"
-          - "'syslog.example.com' in (forward_content.content | b64decode)"
+          - "'syslog.k8s.local.iamrobertyoung.co.uk' in (forward_content.content | b64decode)"
           - "'6514' in (forward_content.content | b64decode)"
           - "'TCP_Framing=\"octet-counted\"' in (forward_content.content | b64decode)"
-          # Framing is opt-in per destination, so the first one must not have it.
-          - "(forward_content.content | b64decode).count('TCP_Framing') == 1"
-        fail_msg: "01-syslog-forward.conf does not render both destinations correctly"
-        success_msg: "01-syslog-forward.conf renders both destinations correctly"
+        fail_msg: "01-syslog-forward.conf does not render the default destination"
+        success_msg: "01-syslog-forward.conf renders the default destination"
+
+    - name: Assert Graylog is not forwarded to
+      ansible.builtin.assert:
+        that:
+          - "'graylog' not in (forward_content.content | b64decode)"
+          - "'5140' not in (forward_content.content | b64decode)"
+        fail_msg: "Graylog is still a destination; the v2 default should not include it"
+        success_msg: "Graylog is not a destination"
 
     - name: Assert no module load that rsyslog rejects
       ansible.builtin.assert:

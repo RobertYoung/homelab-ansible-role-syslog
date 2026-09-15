@@ -18,10 +18,27 @@ Ansible role for configuring rsyslog to forward logs to one or more remote serve
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `syslog_destinations` | one entry, from the two variables below | List of places to forward to. Each entry takes `host`, `port`, and optionally `framing`. |
+| `syslog_destinations` | the in-cluster Loki receiver, see below | List of places to forward to. Each entry takes `host`, `port`, and optionally `framing`. |
 | `syslog_fqdn` | **required** | Fully qualified domain name of the host (used for TLS certificate paths) |
-| `syslog_graylog_url` | `graylog.local.iamrobertyoung.co.uk` | **Deprecated.** Referenced by the default `syslog_destinations` only, so existing playbooks keep working. |
-| `syslog_graylog_port` | `5140` | **Deprecated**, as above. |
+
+```yaml
+syslog_destinations:
+  - host: syslog.k8s.local.iamrobertyoung.co.uk
+    port: 6514
+    framing: octet-counted
+```
+
+### Upgrading from v1.x
+
+**The default destination changed from Graylog to Loki in v2.0.0**, so bumping
+this role's version *is* the cutover for a host. That is deliberate: it makes
+migrating a repo a one-line change rather than two rollouts. Pin `v1.2.0` if a
+host is not ready to move.
+
+`syslog_graylog_url` and `syslog_graylog_port` are gone. Nothing set them — the
+twelve consuming repos all took the default — so removing them silently changes
+nothing rather than silently ignoring an override. To keep forwarding to
+Graylog, name it in `syslog_destinations` explicitly.
 
 ### Multiple destinations
 
