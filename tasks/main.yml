@@ -12,11 +12,21 @@
 - name: Copy rsyslog configuration file
   become: true
   ansible.builtin.template:
-    src: "templates/01-graylog.conf.j2"
-    dest: /etc/rsyslog.d/01-graylog.conf
+    src: "templates/syslog-forward.conf.j2"
+    dest: /etc/rsyslog.d/01-syslog-forward.conf
     owner: root
     group: root
     mode: "0644"
+  notify: Restart rsyslog
+
+# Named for one destination, and this role no longer has only one. Removing it
+# is not tidying: rsyslog reads every file in /etc/rsyslog.d, so leaving it
+# beside its replacement forwards every message twice.
+- name: Remove the superseded single-destination configuration
+  become: true
+  ansible.builtin.file:
+    path: /etc/rsyslog.d/01-graylog.conf
+    state: absent
   notify: Restart rsyslog
 
 - name: Ensure rsyslog service is enabled

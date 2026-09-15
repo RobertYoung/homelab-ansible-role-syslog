@@ -6,7 +6,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/RobertYoung/homelab-ansible-role-syslog/badge)](https://scorecard.dev/viewer/?uri=github.com/RobertYoung/homelab-ansible-role-syslog)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Ansible role for configuring rsyslog to forward logs to a Graylog server over TLS.
+Ansible role for configuring rsyslog to forward logs to one or more remote servers over TLS.
 
 ## Requirements
 
@@ -18,9 +18,33 @@ Ansible role for configuring rsyslog to forward logs to a Graylog server over TL
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `syslog_graylog_url` | `graylog.local.iamrobertyoung.co.uk` | Graylog server hostname |
-| `syslog_graylog_port` | `5140` | Graylog syslog input port |
+| `syslog_destinations` | one entry, from the two variables below | List of places to forward to. Each entry takes `host`, `port`, and optionally `framing`. |
 | `syslog_fqdn` | **required** | Fully qualified domain name of the host (used for TLS certificate paths) |
+| `syslog_graylog_url` | `graylog.local.iamrobertyoung.co.uk` | **Deprecated.** Referenced by the default `syslog_destinations` only, so existing playbooks keep working. |
+| `syslog_graylog_port` | `5140` | **Deprecated**, as above. |
+
+### Multiple destinations
+
+A list, because a host forwards to two places while a destination is being
+replaced — you add the new one, confirm logs arrive, then remove the old.
+
+```yaml
+syslog_destinations:
+  - host: logs.example.com
+    port: 5140
+  - host: syslog.example.com
+    port: 6514
+    framing: octet-counted
+```
+
+### `framing`
+
+Omitted by default, which leaves rsyslog's own default: non-transparent
+framing, where messages are delimited by newlines. Set it to `octet-counted`
+for a receiver that asks for one — [RFC 6587](https://tools.ietf.org/html/rfc6587#section-3.4.1)
+calls that the recommended method, and without it the receiver must wait for
+the *next* message to know the current one has ended, so a quiet host's last
+line sits in limbo until it says something else.
 
 ## Usage
 
@@ -45,14 +69,26 @@ ansible-galaxy install -r requirements.yml
     - role: syslog
       vars:
         syslog_fqdn: "{{ inventory_hostname }}"
-        syslog_graylog_url: graylog.example.com
-        syslog_graylog_port: 5140
+        syslog_destinations:
+          - host: logs.example.com
+            port: 5140
 ```
 
 ## What Gets Installed
 
 - rsyslog with GnuTLS and RELP support
-- Configuration to forward all logs to Graylog over TLS (RFC 5424 format)
+- `/etc/rsyslog.d/01-syslog-forward.conf`, forwarding all logs to every
+  configured destination over TLS in RFC 5424 format
+- Removal of `/etc/rsyslog.d/01-graylog.conf`, this role's previous
+  single-destination file. rsyslog reads every file in `/etc/rsyslog.d`, so
+  leaving it beside its replacement would forward every message twice.
+
+Only `imjournal` is loaded, because the distribution's own `rsyslog.conf` does
+not. `imuxsock` is already loaded there, `mmjsonparse` is used by no rule, and
+there is no `gtls` module at all — the GnuTLS netstream driver is
+`lmnsd_gtls.so`, loaded on demand by `StreamDriver="gtls"`. This role asked
+for all three for a long time, and each failure made `rsyslogd -N1` exit
+non-zero, so a config check could not be used as a gate.
 
 ## TLS Requirements
 
