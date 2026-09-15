@@ -1,20 +1,21 @@
 ---
-# Where logs are forwarded. A list because a host ships to two places during a
-# migration: the destination being retired and the one replacing it. Each entry
-# takes `host`, `port`, and optionally `framing`.
+# Where logs are forwarded. A list, because a host forwards to two places
+# while a destination is being replaced. Each entry takes `host`, `port`, and
+# optionally `framing`.
 #
-# `framing` is omitted by default, which leaves rsyslog's own default
-# (non-transparent, newline-delimited). Set it to `octet-counted` for a
-# receiver that asks for it — RFC 6587 calls that the recommended method, and
-# without it the receiver must wait for the *next* message to know the current
-# one ended, so a quiet host's last line sits in limbo.
+# The default is the in-cluster Loki receiver, and it used to be Graylog
+# (RobertYoung/homelab-talos#178). A repo migrates by bumping this role's
+# version and nothing else: the bump *is* the cutover, which is why it is a
+# major release rather than something that could arrive unnoticed.
+#
+# `framing` is omitted by default, leaving rsyslog's own default of
+# non-transparent, newline-delimited framing. RFC 6587 recommends
+# octet-counted, and without it a receiver must wait for the *next* message to
+# know the current one ended, so a quiet host's last line sits in limbo. The
+# Loki receiver is configured for it.
 syslog_destinations:
-  - host: "{{ syslog_graylog_url }}"
-    port: "{{ syslog_graylog_port }}"
-
-# Deprecated, and referenced by the default above only so that playbooks
-# setting them keep working unchanged. Set `syslog_destinations` instead.
-syslog_graylog_url: graylog.local.iamrobertyoung.co.uk
-syslog_graylog_port: 5140
+  - host: syslog.k8s.local.iamrobertyoung.co.uk
+    port: 6514
+    framing: octet-counted
 
 # syslog_fqdn: Required - Fully qualified domain name of the host (used for TLS certificate paths)

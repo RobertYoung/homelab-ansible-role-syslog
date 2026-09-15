@@ -4,14 +4,8 @@
   become: true
   vars:
     syslog_fqdn: "test.example.com"
-    # Two destinations with different framing, because one is what a host looks
-    # like mid-migration and it is the case a single-destination default cannot
-    # cover.
-    syslog_destinations:
-      - host: logs.example.com
-        port: 5140
-      - host: syslog.example.com
-        port: 6514
-        framing: octet-counted
   roles:
+    # No syslog_destinations override: the default is what every consuming
+    # repo now gets from a version bump, so it is the thing worth testing.
+    # Overriding it is still supported and is what a future migration uses.
     - role: robertyoung.syslog
