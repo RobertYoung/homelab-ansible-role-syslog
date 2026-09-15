@@ -22,30 +22,59 @@
         fail_msg: "rsyslog-gnutls package is not installed"
         success_msg: "rsyslog-gnutls package is installed"
 
-    - name: Check graylog config exists
+    - name: Check forwarding config exists
+      ansible.builtin.stat:
+        path: /etc/rsyslog.d/01-syslog-forward.conf
+      register: forward_conf
+
+    - name: Assert forwarding config exists
+      ansible.builtin.assert:
+        that:
+          - forward_conf.stat.exists
+        fail_msg: "01-syslog-forward.conf does not exist"
+        success_msg: "01-syslog-forward.conf exists"
+
+    - name: Check the superseded single-destination config is gone
       ansible.builtin.stat:
         path: /etc/rsyslog.d/01-graylog.conf
-      register: graylog_conf
+      register: legacy_conf
 
-    - name: Assert graylog config exists
+    - name: Assert the superseded config was removed
       ansible.builtin.assert:
         that:
-          - graylog_conf.stat.exists
-        fail_msg: "01-graylog.conf does not exist"
-        success_msg: "01-graylog.conf exists"
+          - not legacy_conf.stat.exists
+        fail_msg: "01-graylog.conf still present; every message would be forwarded twice"
+        success_msg: "01-graylog.conf removed"
 
-    - name: Read graylog config content
+    - name: Read forwarding config content
       ansible.builtin.slurp:
-        src: /etc/rsyslog.d/01-graylog.conf
-      register: graylog_content
+        src: /etc/rsyslog.d/01-syslog-forward.conf
+      register: forward_content
 
-    - name: Assert graylog config contains expected configuration
+    - name: Assert every destination is rendered, with its own framing
       ansible.builtin.assert:
         that:
-          - "'graylog.local.iamrobertyoung.co.uk' in (graylog_content.content | b64decode)"
-          - "'5140' in (graylog_content.content | b64decode)"
-        fail_msg: "01-graylog.conf does not contain expected Graylog configuration"
-        success_msg: "01-graylog.conf contains correct Graylog configuration"
+          - "'logs.example.com' in (forward_content.content | b64decode)"
+          - "'5140' in (forward_content.content | b64decode)"
+          - "'syslog.example.com' in (forward_content.content | b64decode)"
+          - "'6514' in (forward_content.content | b64decode)"
+          - "'TCP_Framing=\"octet-counted\"' in (forward_content.content | b64decode)"
+          # Framing is opt-in per destination, so the first one must not have it.
+          - "(forward_content.content | b64decode).count('TCP_Framing') == 1"
+        fail_msg: "01-syslog-forward.conf does not render both destinations correctly"
+        success_msg: "01-syslog-forward.conf renders both destinations correctly"
+
+    - name: Assert no module load that rsyslog rejects
+      ansible.builtin.assert:
+        that:
+          - "'module(load=\"gtls\")' not in (forward_content.content | b64decode)"
+          - "'module(load=\"imuxsock\")' not in (forward_content.content | b64decode)"
+        fail_msg: "a rejected module load is back; rsyslogd -N1 will exit non-zero"
+        success_msg: "no rejected module loads"
+
+    - name: Validate the running rsyslog configuration
+      ansible.builtin.command: rsyslogd -N1
+      changed_when: false
 
     - name: Gather service facts
       ansible.builtin.service_facts:

@@ -1,0 +1,39 @@
+{{ ansible_managed | comment }}
+# Only imjournal. The other three loads this file used to carry each made
+# `rsyslogd -N1` exit non-zero, which is why a config check could not be used
+# as a gate on any host:
+#
+#   gtls        there is no `gtls.so`. The GnuTLS netstream driver is
+#               `lmnsd_gtls.so`, loaded on demand by `StreamDriver="gtls"`
+#               below, so asking for it by name only ever failed.
+#   imuxsock    already loaded by /etc/rsyslog.conf on every platform this
+#               role supports, and rsyslog rejects a second load.
+#   mmjsonparse loaded here and used by no rule, here or anywhere else.
+#
+# imjournal stays because the distro config does *not* load it, and it is what
+# puts journald's messages — which on these hosts includes every container's
+# output, via the Docker syslog log-driver — into the stream being forwarded.
+module(load="imjournal")
+
+global(
+DefaultNetstreamDriver="gtls"
+DefaultNetstreamDriverCAFile="/etc/ssl/certs/ca-certificates.crt"
+DefaultNetstreamDriverCertFile="/etc/ssl/certs/{{ syslog_fqdn }}.crt"
+DefaultNetstreamDriverKeyFile="/etc/ssl/private/{{ syslog_fqdn }}.pem"
+)
+{% for destination in syslog_destinations %}
+
+action(
+  type="omfwd"
+  Target="{{ destination.host }}"
+  Port="{{ destination.port }}"
+  Protocol="tcp"
+{% if destination.framing is defined %}
+  TCP_Framing="{{ destination.framing }}"
+{% endif %}
+  StreamDriver="gtls"
+  StreamDriverMode="1"  # TLS-only
+  StreamDriverAuthMode="x509/name"
+  Template="RSYSLOG_SyslogProtocol23Format"
+)
+{% endfor %}
